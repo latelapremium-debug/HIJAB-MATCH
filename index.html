@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hijab Match — Game Sederhana</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --accent:#ffd166;
+    --muted:#94a3b8;
+    --tile-size:110px;
+  }
+  body{
+    margin:0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#071428 0%, #0f1724 100%);
+    color:#e6eef6;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:16px;
+  }
+  .app{
+    width:100%;
+    max-width:420px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border-radius:14px;
+    box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+    padding:14px;
+    box-sizing:border-box;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+  }
+  .title{
+    font-weight:700;
+    font-size:18px;
+    letter-spacing:0.2px;
+  }
+  .hud{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); }
+  .target-card{
+    margin-top:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.08));
+    padding:12px;
+    border-radius:10px;
+  }
+  .target-view{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .mannequin{
+    width:120px;
+    height:140px;
+    border-radius:12px;
+    background: linear-gradient(180deg,#ffffff10,#00000010);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .mannequin .hijab{
+    width:100%;
+    height:60%;
+    border-bottom-left-radius: 60% 40%;
+    border-bottom-right-radius: 60% 40%;
+    transform: translateY(-10%);
+  }
+  .target-info{ flex:1; }
+  .target-label{ color:var(--muted); font-size:13px; margin-bottom:6px; }
+  .controls{ display:flex; gap:8px; align-items:center; }
+  .btn{
+    background:transparent;
+    border:1px solid #ffffff14;
+    color:var(--muted);
+    padding:8px 10px;
+    border-radius:8px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .choices{
+    display:flex;
+    gap:10px;
+    margin-top:12px;
+    justify-content:space-between;
+  }
+  .tile{
+    flex:1;
+    min-width:0;
+    border-radius:10px;
+    height:var(--tile-size);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+    border:2px solid transparent;
+    touch-action: manipulation;
+    user-select:none;
+  }
+  .tile:active{ transform: scale(0.98); }
+  .tile-label{
+    position:absolute;
+    bottom:8px;
+    left:8px;
+    font-size:12px;
+    color:rgba(255,255,255,0.9);
+    text-shadow:0 2px 6px rgba(0,0,0,0.6);
+  }
+  .footer{
+    margin-top:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+  }
+  .timerbar{
+    height:10px;
+    background:#ffffff12;
+    border-radius:6px;
+    overflow:hidden;
+    flex:1;
+  }
+  .timerfill{
+    height:100%;
+    background:linear-gradient(90deg,#34d399,#06b6d4);
+    width:100%;
+    transform-origin:left;
+  }
+  .center{ text-align:center; }
+  .small{ font-size:12px; color:var(--muted); }
+  .bigscore{ font-size:26px; font-weight:700; }
+  /* patterns (use CSS backgrounds, easy to replace with images) */
+  .pattern-solid{}
+  .pattern-stripes{ background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 6px, transparent 6px 12px); }
+  .pattern-dots{ background-image: radial-gradient(circle at 10px 10px, rgba(255,255,255,0.06) 2px, transparent 3px); background-size:18px 18px; }
+  .pattern-gradient{ background-image: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(0,0,0,0.05)); }
+  .pattern-quilt{ background-image: linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%); background-size: 20px 20px; background-position: 0 0, 10px 10px;}
+  /* small hint when wrong */
+  .shake { animation: shake 300ms; }
+  @keyframes shake { 0%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(6px)} 75%{transform:translateX(-4px)} 100%{transform:translateX(0)} }
+  /* responsive tweak for small phones */
+  @media (max-width:360px){
+    :root{ --tile-size:90px; }
+    .mannequin{ width:100px; height:120px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <div>
+        <div class="title">Hijab Match</div>
+        <div class="small">Cocokkan desain hijabnya! 🎯</div>
+      </div>
+      <div class="hud">
+        <div class="small">Lives: <span id="lives">3</span></div>
+        <div class="small">Level: <span id="level">1</span></div>
+        <div class="small">Score: <span id="score">0</span></div>
+      </div>
+    </header>
+
+    <section class="target-card">
+      <div class="target-view">
+        <div class="mannequin">
+          <!-- target hijab tampil di sini -->
+          <div id="targetHijab" class="hijab pattern-solid" style="background:#ff8fa3;"></div>
+        </div>
+        <div class="target-info">
+          <div class="target-label">Target: <strong id="targetText">Pink • Quilted</strong></div>
+          <div class="center bigscore" id="message">Pilih yang sama!</div>
+          <div class="center small" style="margin-top:6px">Cepat sebelum waktunya habis ⏱️</div>
+        </div>
+      </div>
+
+      <div class="choices" id="choices">
+        <!-- pilihan di-generate oleh JS -->
+      </div>
+      <div class="footer">
+        <div class="timerbar" aria-hidden>
+          <div class="timerfill" id="timerFill" style="width:100%"></div>
+        </div>
+        <div style="width:10px"></div>
+        <button class="btn" id="skipBtn">Lewati ⏭️</button>
+      </div>
+    </section>
+
+    <div style="height:10px"></div>
+    <div style="display:flex;gap:8px;align-items:center;justify-content:center">
+      <button class="btn" id="restartBtn">Mulai Ulang</button>
+      <button class="btn" id="shareTipBtn">Tips Buat TikTok</button>
+    </div>
+  </div>
+
+<script>
+/*
+  Hijab Match - Simple HTML/JS Game
+  - Single file, no external assets
+  - Customize "designs" array to add colors/patterns or replace with images
+*/
+
+// beberapa desain hijab (color + class pattern + label)
+const designs = [
+  {color:'#ff8fa3', pattern:'pattern-quilt', label:'Pink • Quilted'},
+  {color:'#ffd166', pattern:'pattern-solid', label:'Yellow • Solid'},
+  {color:'#8ecae6', pattern:'pattern-gradient', label:'Sky • Gradient'},
+  {color:'#b7f2b2', pattern:'pattern-dots', label:'Mint • Dotted'},
+  {color:'#c08497', pattern:'pattern-stripes', label:'Mauve • Stripes'},
+  {color:'#b0c4de', pattern:'pattern-solid', label:'Grey • Solid'},
+  // tambahkan lagi sesuai keinginan
+];
+
+let state = {
+  score:0, level:1, lives:3,
+  roundTime:6, // detik per ronde, akan turun makin tinggi level
+  timer:null,
+  timeLeft:1,
+  currentTarget:null
+};
+
+const el = {
+  lives: document.getElementById('lives'),
+  score: document.getElementById('score'),
+  level: document.getElementById('level'),
+  targetHijab: document.getElementById('targetHijab'),
+  targetText: document.getElementById('targetText'),
+  choices: document.getElementById('choices'),
+  timerFill: document.getElementById('timerFill'),
+  message: document.getElementById('message'),
+  skipBtn: document.getElementById('skipBtn'),
+  restartBtn: document.getElementById('restartBtn'),
+  shareTipBtn: document.getElementById('shareTipBtn')
+};
+
+function randInt(max){ return Math.floor(Math.random()*max); }
+
+// pilih target acak lalu generate pilihan
+function newRound(){
+  // difficulty adjust
+  state.roundTime = Math.max(2.5, 6 - (state.level-1)*0.4);
+
+  // pilih target
+  const target = designs[randInt(designs.length)];
+  state.currentTarget = target;
+
+  // tampil target
+  el.targetHijab.style.background = target.color;
+  el.targetHijab.className = 'hijab ' + target.pattern;
+  el.targetText.textContent = target.label;
+
+  // buat 3 pilihan: 1 benar + 2 distractor
+  const options = [target];
+  while(options.length < 3){
+    const cand = designs[randInt(designs.length)];
+    if(!options.includes(cand)) options.push(cand);
+  }
+  // acak posisi
+  shuffle(options);
+  renderChoices(options);
+
+  // reset timer
+  startTimer(state.roundTime);
+}
+
+// Fisher-Yates shuffle
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+// render pilihan ke DOM
+function renderChoices(options){
+  el.choices.innerHTML = '';
+  options.forEach(opt=>{
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.style.background = opt.color;
+    tile.classList.add(opt.pattern);
+    // label untuk debugging / UX
+    const lab = document.createElement('div');
+    lab.className = 'tile-label';
+    lab.textContent = opt.label.split(' • ')[1]; // only pattern name to avoid spoil
+    tile.appendChild(lab);
+
+    // click & touch handling
+    tile.addEventListener('click', ()=>onPick(opt, tile));
+    tile.addEventListener('touchstart', ()=>onPick(opt, tile), {passive:true});
+
+    el.choices.appendChild(tile);
+  });
+}
+
+// ketika pemain pilih opsi
+function onPick(opt, tile){
+  // prevent double pick while animasi
+  if(el.timerFill.dataset.busy === '1') return;
+
+  if(opt === state.currentTarget){
+    // benar
+    state.score += 10 * state.level;
+    el.score.textContent = state.score;
+    el.message.textContent = 'Benar! +'+(10*state.level);
+    // tingkatkan level setiap beberapa poin
+    if(state.score >= state.level * 30){
+      state.level++;
+      el.level.textContent = state.level;
+      el.message.textContent += ' • Level up!';
+    }
+    flashTile(tile, true);
+    nextRoundDelay(700);
+  } else {
+    // salah
+    state.lives--;
+    el.lives.textContent = state.lives;
+    el.message.textContent = 'Salah!';
+    flashTile(tile, false);
+    wrongShake();
+    if(state.lives <= 0){ gameOver(); return; }
+    nextRoundDelay(800);
+  }
+}
+
+// flash efek pada tile
+function flashTile(tile, ok){
+  tile.style.borderColor = ok ? '#34d399' : '#fb7185';
+  el.timerFill.dataset.busy = '1';
+  setTimeout(()=>{
+    tile.style.borderColor = 'transparent';
+    el.timerFill.dataset.busy = '0';
+  },600);
+}
+
+// get next round after delay
+function nextRoundDelay(ms){
+  stopTimer();
+  setTimeout(()=> newRound(), ms);
+}
+
+// timer management
+function startTimer(seconds){
+  stopTimer();
+  state.timeLeft = seconds;
+  updateTimerUI();
+  el.timerFill.dataset.busy = '0';
+  state.timer = setInterval(()=>{
+    state.timeLeft -= 0.05;
+    if(state.timeLeft <= 0){
+      // time up
+      stopTimer();
+      state.lives--;
+      el.lives.textContent = state.lives;
+      el.message.textContent = 'Waktu habis!';
+      wrongShake();
+      if(state.lives <= 0){ gameOver(); return; }
+      setTimeout(()=> newRound(), 700);
+    } else {
+      updateTimerUI();
+    }
+  },50);
+}
+function stopTimer(){ if(state.timer) clearInterval(state.timer); state.timer=null; }
+function updateTimerUI(){
+  const pct = Math.max(0, (state.timeLeft / state.roundTime) * 100);
+  el.timerFill.style.width = pct + '%';
+}
+
+// animation untuk wrong answer
+function wrongShake(){
+  el.choices.classList.add('shake');
+  setTimeout(()=> el.choices.classList.remove('shake'), 350);
+}
+
+// game over
+function gameOver(){
+  stopTimer();
+  el.message.textContent = 'Game Over! Score: ' + state.score;
+  // small restart affordance
+  setTimeout(()=> resetGame(), 1200);
+}
+
+// reset / restart
+function resetGame(){
+  state.score = 0; state.level = 1; state.lives = 3;
+  el.score.textContent = state.score;
+  el.level.textContent = state.level;
+  el.lives.textContent = state.lives;
+  el.message.textContent = 'Pilih yang sama!';
+  newRound();
+}
+
+// Skip round
+el.skipBtn.addEventListener('click', ()=>{
+  stopTimer();
+  state.lives--; el.lives.textContent = state.lives;
+  if(state.lives <= 0){ gameOver(); return; }
+  newRound();
+});
+
+// Restart
+el.restartBtn.addEventListener('click', ()=> resetGame());
+
+// share tips
+el.shareTipBtn.addEventListener('click', ()=>{
+  alert('Tips TikTok: Rekam layar vertikal, tambahkan musik trending, gunakan caption singkat, dan tunjukkan momen "level up" atau combo score untuk hook penonton!');
+});
+
+// start
+resetGame();
+
+</script>
+</body>
+</html>
